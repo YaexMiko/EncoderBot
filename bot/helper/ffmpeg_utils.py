@@ -64,7 +64,7 @@ def encode(filepath, progress_callback=None):
         audio_opts = '-c:a aac -b:a 128k'  # Transcode non-AAC audio to AAC
     
     # Run FFmpeg
-    command = ['ffmpeg', '-y', '-i', filepath, '-map', '0'] + video_opts.split() + audio_opts.split() + [output_filepath]
+    command = ['ffmpeg', '-y', '-i', filepath] + video_opts.split() + audio_opts.split() + [output_filepath]
     process = Popen(command, stderr=PIPE, universal_newlines=True)
     
     total_duration = get_duration(filepath)
