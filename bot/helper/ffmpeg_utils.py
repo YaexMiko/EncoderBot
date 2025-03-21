@@ -53,11 +53,11 @@ def encode(filepath, quality, progress_callback=None):
     
     # Set encoding options based on quality
     if quality == 480:
-        video_opts = '-c:v libx265 -crf 30 -vf scale=854:480 -preset ultrafast -threads 8'
+        video_opts = '-c:v libx265 -crf 28 -vf scale=854:480 -preset medium -threads 8'
     elif quality == 720:
-        video_opts = '-c:v libx265 -crf 27 -vf scale=1280:720 -preset ultrafast -threads 8'
+        video_opts = '-c:v libx265 -crf 26 -vf scale=1280:720 -preset medium -threads 8'
     elif quality == 1080:
-        video_opts = '-c:v libx265 -crf 26 -vf scale=1920:1080 -preset ultrafast -threads 8'
+        video_opts = '-c:v libx265 -crf 24 -vf scale=1920:1080 -preset medium -threads 8'
     else:
         raise ValueError("Unsupported quality")
     
