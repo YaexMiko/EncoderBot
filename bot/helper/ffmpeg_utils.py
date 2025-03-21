@@ -1,7 +1,7 @@
 import os
 import time
 import ffmpeg
-from subprocess import call, check_output
+from subprocess import Popen, PIPE
 from hachoir.metadata import extractMetadata
 from hachoir.parser import createParser
 
@@ -14,9 +14,9 @@ def get_codec(filepath, channel='v:0'):
                             'default=nokey=1:noprint_wrappers=1', filepath])
     return output.decode('utf-8').split()
 
-def encode(filepath):
+def encode(filepath, progress_callback=None):
     """
-    Encode a video file to HEVC (x265) format.
+    Encode a video file to HEVC (x265) format with progress updates.
     """
     basefilepath, extension = os.path.splitext(filepath)
     output_filepath = basefilepath + '.[HEVC].mp4'
@@ -42,7 +42,24 @@ def encode(filepath):
         audio_opts = '-c:a aac -b:a 128k'  # Transcode non-AAC audio to AAC
     
     # Run FFMPEG command to encode the video
-    call(['ffmpeg', '-i', filepath] + video_opts.split() + audio_opts.split() + [output_filepath])
+    command = ['ffmpeg', '-i', filepath] + video_opts.split() + audio_opts.split() + [output_filepath]
+    process = Popen(command, stderr=PIPE, universal_newlines=True)
+    
+    total_duration = get_duration(filepath)
+    start_time = time.time()
+    
+    for line in process.stderr:
+        if 'time=' in line:
+            time_str = line.split('time=')[1].split()[0]
+            current_time = sum(float(x) * 60 ** i for i, x in enumerate(reversed(time_str.split(':'))))
+            progress = (current_time / total_duration) * 100
+            elapsed_time = time.time() - start_time
+            eta = (elapsed_time / progress) * (100 - progress) if progress > 0 else 0
+            
+            if progress_callback:
+                progress_callback(progress, eta)
+    
+    process.wait()
     
     # Remove the original file after encoding
     os.remove(filepath)
