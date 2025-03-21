@@ -60,72 +60,69 @@ def add_task(message: Message):
         start_time = time.time()
         filepath = message.download(file_name=download_dir, progress=download_progress)
         
-        # Encoding and Uploading for each quality
-        qualities = [480, 720, 1080]
-        for quality in qualities:
-            msg.edit_text(f"Encoding {quality}p...\nProgress: 0%\n[░░░░░░░░░░]\nETA: 0s")
+        # Encoding
+        msg.edit_text("Encoding...\nProgress: 0%\n[░░░░░░░░░░]\nETA: 0s")
+        
+        last_update_time = time.time()
+        
+        def encode_progress(progress, eta):
+            nonlocal last_update_time
+            current_time = time.time()
+            if current_time - last_update_time < 5:  # Update every 5 seconds
+                return
+            
+            msg.edit_text(
+                f"Encoding...\n"
+                f"Progress: {progress:.2f}%\n"
+                f"[{progress_bar(progress)}]\n"
+                f"ETA: {format_time(eta)}"
+            )
+            last_update_time = current_time
+        
+        new_file = encode(filepath, progress_callback=encode_progress)
+        
+        if new_file:
+            # Uploading
+            msg.edit_text("Uploading...\nProgress: 0%\nSize: 0.00 MB of 0.00 MB\nSpeed: 0.00 MB/s\nETA: 0s\nElapsed: 0s")
             
             last_update_time = time.time()
             
-            def encode_progress(progress, eta):
+            def upload_progress(current, total):
                 nonlocal last_update_time
                 current_time = time.time()
                 if current_time - last_update_time < 5:  # Update every 5 seconds
                     return
                 
+                progress = (current / total) * 100
+                speed = current / (current_time - start_time)
+                eta = (total - current) / speed if speed > 0 else 0
+                elapsed = current_time - start_time
                 msg.edit_text(
-                    f"Encoding {quality}p...\n"
+                    f"Uploading...\n"
                     f"Progress: {progress:.2f}%\n"
-                    f"[{progress_bar(progress)}]\n"
-                    f"ETA: {format_time(eta)}"
+                    f"Size: {current / 1024 / 1024:.2f} MB of {total / 1024 / 1024:.2f} MB\n"
+                    f"Speed: {speed / 1024 / 1024:.2f} MB/s\n"
+                    f"ETA: {format_time(eta)}\n"
+                    f"Elapsed: {format_time(elapsed)}"
                 )
                 last_update_time = current_time
             
-            new_file = encode(filepath, quality, progress_callback=encode_progress)
-            
-            if new_file:
-                # Uploading
-                msg.edit_text(f"Uploading {quality}p...\nProgress: 0%\nSize: 0.00 MB of 0.00 MB\nSpeed: 0.00 MB/s\nETA: 0s\nElapsed: 0s")
-                
-                last_update_time = time.time()
-                
-                def upload_progress(current, total):
-                    nonlocal last_update_time
-                    current_time = time.time()
-                    if current_time - last_update_time < 5:  # Update every 5 seconds
-                        return
-                    
-                    progress = (current / total) * 100
-                    speed = current / (current_time - start_time)
-                    eta = (total - current) / speed if speed > 0 else 0
-                    elapsed = current_time - start_time
-                    msg.edit_text(
-                        f"Uploading {quality}p...\n"
-                        f"Progress: {progress:.2f}%\n"
-                        f"Size: {current / 1024 / 1024:.2f} MB of {total / 1024 / 1024:.2f} MB\n"
-                        f"Speed: {speed / 1024 / 1024:.2f} MB/s\n"
-                        f"ETA: {format_time(eta)}\n"
-                        f"Elapsed: {format_time(elapsed)}"
-                    )
-                    last_update_time = current_time
-                
-                start_time = time.time()
-                message.reply_video(
-                    new_file,
-                    quote=True,
-                    supports_streaming=True,
-                    progress=upload_progress,
-                    thumb=get_thumbnail(new_file, download_dir, get_duration(new_file) / 4),
-                    duration=get_duration(new_file),
-                    width=get_width_height(new_file)[0],
-                    height=get_width_height(new_file)[1]
-                )
-                os.remove(new_file)
-                msg.edit_text(f"Video Successfully Encoded to {quality}p 🐭")
-            else:
-                msg.edit_text(f"Something Went Wrong While Encoding {quality}p :(\nTry Again Later 🐭")
-        
-        os.remove(filepath)
+            start_time = time.time()
+            message.reply_video(
+                new_file,
+                quote=True,
+                supports_streaming=True,
+                progress=upload_progress,
+                thumb=get_thumbnail(new_file, download_dir, get_duration(new_file) / 4),
+                duration=get_duration(new_file),
+                width=get_width_height(new_file)[0],
+                height=get_width_height(new_file)[1]
+            )
+            os.remove(new_file)
+            msg.edit_text("Video Successfully Encoded to x265 🐭")
+        else:
+            msg.edit_text("Something Went Wrong While Encoding :(\nTry Again Later 🐭")
+            os.remove(filepath)
     except Exception as e:
         msg.edit_text(f"```{e}```")
     on_task_complete()
