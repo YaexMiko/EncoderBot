@@ -1,6 +1,6 @@
 import os
 import time
-from bot import data, download_dir
+from bot import data, download_dir, app  # Import app from bot
 from pyrogram.types import Message
 from .ffmpeg_utils import encode, get_thumbnail, get_duration, get_width_height
 
@@ -63,7 +63,7 @@ async def add_task(message: Message):
             if current_time - last_update_time < 5:  # Update every 5 seconds
                 return
             
-            # Use a lambda to avoid blocking the main thread
+            # Use the app object to schedule the edit_text task
             app.loop.create_task(
                 msg.edit_text(
                     f"Encoding...\n"
