@@ -1,6 +1,6 @@
 import os
 import time
-import ffmpeg
+import re
 from subprocess import Popen, PIPE
 from hachoir.metadata import extractMetadata
 from hachoir.parser import createParser
@@ -48,15 +48,18 @@ def encode(filepath, progress_callback=None):
     total_duration = get_duration(filepath)
     start_time = time.time()
     
+    # Regex to extract the current time from ffmpeg output
+    time_regex = re.compile(r'time=(\d{2}:\d{2}:\d{2}\.\d{2})')
+    
     for line in process.stderr:
-        if 'time=' in line:
-            time_str = line.split('time=')[1].split()[0]
-            current_time = sum(float(x) * 60 ** i for i, x in enumerate(reversed(time_str.split(':'))))
-            progress = (current_time / total_duration) * 100
-            elapsed_time = time.time() - start_time
-            eta = (elapsed_time / progress) * (100 - progress) if progress > 0 else 0
-            
-            if progress_callback:
+        if progress_callback:
+            match = time_regex.search(line)
+            if match:
+                current_time_str = match.group(1)
+                current_time = sum(float(x) * 60 ** i for i, x in enumerate(reversed(current_time_str.split(':'))))
+                progress = (current_time / total_duration) * 100
+                elapsed_time = time.time() - start_time
+                eta = (elapsed_time / progress) * (100 - progress) if progress > 0 else 0
                 progress_callback(progress, eta)
     
     process.wait()
