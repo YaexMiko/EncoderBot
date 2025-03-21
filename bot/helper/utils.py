@@ -26,17 +26,17 @@ def on_task_complete():
     if len(data) > 0:
         add_task(data[0])
 
-def add_task(message: Message):
+async def add_task(message: Message):
     """
     Handle the task of downloading, encoding, and uploading a video with progress updates.
     """
     try:
         # Downloading
-        msg = message.reply_text("Downloading...\nProgress: 0%\n[░░░░░░░░░░]\nSize: 0.00 MB of 0.00 MB\nSpeed: 0.00 MB/s\nETA: 0s\nElapsed: 0s", quote=True)
+        msg = await message.reply_text("Downloading...\nProgress: 0%\n[░░░░░░░░░░]\nSize: 0.00 MB of 0.00 MB\nSpeed: 0.00 MB/s\nETA: 0s\nElapsed: 0s", quote=True)
         
         last_update_time = time.time()
         
-        def download_progress(current, total):
+        async def download_progress(current, total):
             nonlocal last_update_time
             current_time = time.time()
             if current_time - last_update_time < 5:  # Update every 5 seconds
@@ -46,7 +46,7 @@ def add_task(message: Message):
             speed = current / (current_time - start_time)
             eta = (total - current) / speed if speed > 0 else 0
             elapsed = current_time - start_time
-            msg.edit_text(
+            await msg.edit_text(
                 f"Downloading...\n"
                 f"Progress: {progress:.2f}%\n"
                 f"[{progress_bar(progress)}]\n"
@@ -58,10 +58,10 @@ def add_task(message: Message):
             last_update_time = current_time
         
         start_time = time.time()
-        filepath = message.download(file_name=download_dir, progress=download_progress)
+        filepath = await message.download(file_name=download_dir, progress=download_progress)
         
         # Encoding
-        msg.edit_text("Encoding...\nProgress: 0%\n[░░░░░░░░░░]\nETA: 0s")
+        await msg.edit_text("Encoding...\nProgress: 0%\n[░░░░░░░░░░]\nETA: 0s")
         
         last_update_time = time.time()
         
@@ -83,11 +83,11 @@ def add_task(message: Message):
         
         if new_file:
             # Uploading
-            msg.edit_text("Uploading...\nProgress: 0%\nSize: 0.00 MB of 0.00 MB\nSpeed: 0.00 MB/s\nETA: 0s\nElapsed: 0s")
+            await msg.edit_text("Uploading...\nProgress: 0%\nSize: 0.00 MB of 0.00 MB\nSpeed: 0.00 MB/s\nETA: 0s\nElapsed: 0s")
             
             last_update_time = time.time()
             
-            def upload_progress(current, total):
+            async def upload_progress(current, total):
                 nonlocal last_update_time
                 current_time = time.time()
                 if current_time - last_update_time < 5:  # Update every 5 seconds
@@ -97,7 +97,7 @@ def add_task(message: Message):
                 speed = current / (current_time - start_time)
                 eta = (total - current) / speed if speed > 0 else 0
                 elapsed = current_time - start_time
-                msg.edit_text(
+                await msg.edit_text(
                     f"Uploading...\n"
                     f"Progress: {progress:.2f}%\n"
                     f"Size: {current / 1024 / 1024:.2f} MB of {total / 1024 / 1024:.2f} MB\n"
@@ -108,7 +108,7 @@ def add_task(message: Message):
                 last_update_time = current_time
             
             start_time = time.time()
-            message.reply_video(
+            await message.reply_video(
                 new_file,
                 quote=True,
                 supports_streaming=True,
@@ -119,10 +119,10 @@ def add_task(message: Message):
                 height=get_width_height(new_file)[1]
             )
             os.remove(new_file)
-            msg.edit_text("Video Successfully Encoded to x265 🐭")
+            await msg.edit_text("Video Successfully Encoded to x265 🐭")
         else:
-            msg.edit_text("Something Went Wrong While Encoding :(\nTry Again Later 🐭")
+            await msg.edit_text("Something Went Wrong While Encoding :(\nTry Again Later 🐭")
             os.remove(filepath)
     except Exception as e:
-        msg.edit_text(f"```{e}```")
+        await msg.edit_text(f"```{e}```")
     on_task_complete()
