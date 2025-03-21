@@ -35,8 +35,8 @@ def encode(filepath):
             # Copy stream to hvc1
             video_opts = '-c:v copy -tag:v hvc1'
     else:
-        # Transcode to h265 / hvc1
-        video_opts = '-c:v libx265 -crf 35 -tag:v hvc1 -preset slow -threads 8'
+        # Transcode to h265 / hvc1 with faster settings
+        video_opts = '-c:v libx265 -crf 28 -tag:v hvc1 -preset ultrafast -threads 8'  # Changed preset to ultrafast and adjusted CRF
     # Get the audio channel codec
     audio_codec = get_codec(filepath, channel='a:0')
     if audio_codec == []:
