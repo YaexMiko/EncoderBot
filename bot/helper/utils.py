@@ -5,31 +5,23 @@ from pyrogram.types import Message
 from .ffmpeg_utils import encode, get_thumbnail, get_duration, get_width_height
 
 def format_time(seconds):
-    """
-    Format time in seconds to a human-readable format (e.g., 2m 30s).
-    """
+    """Convert seconds to a human-readable format."""
     minutes, seconds = divmod(int(seconds), 60)
     return f"{minutes}m {seconds}s"
 
 def progress_bar(percentage):
-    """
-    Generate a progress bar based on the percentage.
-    """
+    """Generate a progress bar for visual representation."""
     filled = int(percentage // 10)
     return '█' * filled + '░' * (10 - filled)
 
 def on_task_complete():
-    """
-    Remove the completed task from the queue and start the next one.
-    """
+    """Remove completed task and start the next one if available."""
     del data[0]
     if len(data) > 0:
         add_task(data[0])
 
 async def add_task(message: Message):
-    """
-    Handle the task of downloading, encoding, and uploading a video with progress updates.
-    """
+    """Handle downloading, encoding, and uploading a video with progress updates."""
     try:
         # Downloading
         msg = await message.reply_text("Downloading...\nProgress: 0%\n[░░░░░░░░░░]\nSize: 0.00 MB of 0.00 MB\nSpeed: 0.00 MB/s\nETA: 0s\nElapsed: 0s", quote=True)
@@ -71,11 +63,14 @@ async def add_task(message: Message):
             if current_time - last_update_time < 5:  # Update every 5 seconds
                 return
             
-            msg.edit_text(
-                f"Encoding...\n"
-                f"Progress: {progress:.2f}%\n"
-                f"[{progress_bar(progress)}]\n"
-                f"ETA: {format_time(eta)}"
+            # Use a lambda to avoid blocking the main thread
+            app.loop.create_task(
+                msg.edit_text(
+                    f"Encoding...\n"
+                    f"Progress: {progress:.2f}%\n"
+                    f"[{progress_bar(progress)}]\n"
+                    f"ETA: {format_time(eta)}"
+                )
             )
             last_update_time = current_time
         
@@ -83,7 +78,7 @@ async def add_task(message: Message):
         
         if new_file:
             # Uploading
-            await msg.edit_text("Uploading...\nProgress: 0%\nSize: 0.00 MB of 0.00 MB\nSpeed: 0.00 MB/s\nETA: 0s\nElapsed: 0s")
+            await msg.edit_text("Uploading...\nProgress: 0%")
             
             last_update_time = time.time()
             
@@ -121,8 +116,9 @@ async def add_task(message: Message):
             os.remove(new_file)
             await msg.edit_text("Video Successfully Encoded to x265 🐭")
         else:
-            await msg.edit_text("Something Went Wrong While Encoding :(\nTry Again Later 🐭")
+            await msg.edit_text("Encoding failed. Try again later 🐭")
             os.remove(filepath)
+    
     except Exception as e:
-        await msg.edit_text(f"```{e}```")
+        await msg.edit_text(f"Error: {e}")
     on_task_complete()
