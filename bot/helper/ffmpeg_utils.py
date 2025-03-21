@@ -40,19 +40,24 @@ def get_codec(filepath, channel='v:0'):
                            '-of', 'default=nokey=1:noprint_wrappers=1', filepath])
     return output.decode('utf-8').split()
 
-def encode(filepath, progress_callback=None):
-    """Convert video to HEVC format with progress updates."""
+def encode(filepath, quality=None, progress_callback=None):
+    """Convert video to HEVC or H.264 format with progress updates."""
     basefilepath, extension = os.path.splitext(filepath)
-    output_filepath = basefilepath + '.[HEVC].mp4'
-
+    
+    if quality == 480:
+        output_filepath = basefilepath + '.[480p].mp4'
+        # Fastest FFmpeg settings for 480p with libx264
+        video_opts = '-c:v libx264 -crf 30 -vf scale=854:480 -preset ultrafast -threads 8'
+    else:
+        output_filepath = basefilepath + '.[HEVC].mp4'
+        # Default HEVC encoding settings
+        video_opts = '-c:v libx265 -crf 28 -tag:v hvc1 -preset medium -threads 8'
+    
     if os.path.isfile(output_filepath):
         print(f'File "{output_filepath}" already exists, overwriting 🐭')
         os.remove(output_filepath)
     
     print(f'Processing file: {filepath}')
-    
-    # Set encoding options
-    video_opts = '-c:v libx265 -crf 28 -tag:v hvc1 -preset medium -threads 8'
     
     # Check audio codec
     audio_codec = get_codec(filepath, channel='a:0')
@@ -158,7 +163,8 @@ def add_task(message: Message):
                 f"ETA: {format_time(eta)}"
             )
         
-        new_file = encode(filepath, progress_callback=encode_progress)
+        # Encode in 480p first
+        new_file = encode(filepath, quality=480, progress_callback=encode_progress)
         
         if new_file:
             # Uploading
@@ -175,7 +181,7 @@ def add_task(message: Message):
                 height=get_width_height(new_file)[1]
             )
             os.remove(new_file)
-            msg.edit_text("Video Successfully Encoded to x265 🐭")
+            msg.edit_text("Video Successfully Encoded to 480p 🐭")
         else:
             msg.edit_text("Encoding failed. Try again later 🐭")
             os.remove(filepath)
