@@ -1,8 +1,9 @@
 import os
 import time
+import subprocess
 from bot import data, download_dir
 from pyrogram.types import Message
-from .ffmpeg_utils import encode, get_thumbnail, get_duration, get_width_height
+from .ffmpeg_utils import get_thumbnail, get_duration, get_width_height
 
 def format_time(seconds):
     """
@@ -25,6 +26,44 @@ def on_task_complete():
     del data[0]
     if len(data) > 0:
         add_task(data[0])
+
+def encode(input_file, progress_callback=None):
+    """
+    Encode the video using FFmpeg with x265 codec and provide real-time progress updates.
+    """
+    output_file = input_file.replace(".mp4", "_encoded.mp4")
+    
+    command = [
+        "ffmpeg", "-y", "-i", input_file,
+        "-c:v", "libx265", "-preset", "fast", "-crf", "28",
+        "-c:a", "aac", "-b:a", "128k",
+        output_file
+    ]
+    
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    total_frames = None
+    for line in process.stderr:
+        if "frame=" in line:
+            parts = line.split()
+            frame_index = next((i for i, p in enumerate(parts) if "frame=" in p), None)
+            if frame_index is not None:
+                try:
+                    current_frame = int(parts[frame_index + 1])
+                    if total_frames is None:
+                        total_frames = 10000  # Approximate total frame count
+                    
+                    progress = (current_frame / total_frames) * 100
+                    eta = (100 - progress) * 0.1  # Estimate time remaining
+                    
+                    if progress_callback:
+                        progress_callback(progress, eta)
+                except ValueError:
+                    continue
+    
+    process.wait()
+
+    return output_file if process.returncode == 0 else None
 
 def add_task(message: Message):
     """
