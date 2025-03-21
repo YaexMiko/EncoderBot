@@ -40,19 +40,26 @@ def get_codec(filepath, channel='v:0'):
                            '-of', 'default=nokey=1:noprint_wrappers=1', filepath])
     return output.decode('utf-8').split()
 
-def encode(filepath, progress_callback=None):
+def encode(filepath, quality, progress_callback=None):
     """Convert video to HEVC format with progress updates."""
     basefilepath, extension = os.path.splitext(filepath)
-    output_filepath = basefilepath + '.[HEVC].mp4'
+    output_filepath = basefilepath + f'.[HEVC_{quality}p].mp4'
 
     if os.path.isfile(output_filepath):
         print(f'File "{output_filepath}" already exists, overwriting 🐭')
         os.remove(output_filepath)
     
-    print(f'Processing file: {filepath}')
+    print(f'Processing file: {filepath} with quality {quality}p')
     
-    # Set encoding options
-    video_opts = '-c:v libx265 -crf 28 -tag:v hvc1 -preset medium -threads 8'
+    # Set encoding options based on quality
+    if quality == 480:
+        video_opts = '-c:v libx265 -crf 28 -vf scale=854:480 -preset medium -threads 8'
+    elif quality == 720:
+        video_opts = '-c:v libx265 -crf 26 -vf scale=1280:720 -preset medium -threads 8'
+    elif quality == 1080:
+        video_opts = '-c:v libx265 -crf 24 -vf scale=1920:1080 -preset medium -threads 8'
+    else:
+        raise ValueError("Unsupported quality")
     
     # Check audio codec
     audio_codec = get_codec(filepath, channel='a:0')
@@ -90,7 +97,6 @@ def encode(filepath, progress_callback=None):
         print("Encoding failed!")
         return None
     
-    os.remove(filepath)  # Remove original file
     return output_filepath
 
 def get_thumbnail(filepath, path, ttl):
@@ -147,39 +153,56 @@ def add_task(message: Message):
         start_time = time.time()
         filepath = message.download(file_name=download_dir, progress=download_progress)
         
-        # Encoding
-        msg.edit_text("Encoding...\nProgress: 0%\n[░░░░░░░░░░]\nETA: 0s")
-        
-        def encode_progress(progress, eta):
-            msg.edit_text(
-                f"Encoding...\n"
-                f"Progress: {progress:.2f}%\n"
-                f"[{progress_bar(progress)}]\n"
-                f"ETA: {format_time(eta)}"
-            )
-        
-        new_file = encode(filepath, progress_callback=encode_progress)
-        
-        if new_file:
-            # Uploading
-            msg.edit_text("Uploading...\nProgress: 0%")
+        # Encoding and Uploading for each quality
+        qualities = [480, 720, 1080]
+        for quality in qualities:
+            msg.edit_text(f"Encoding {quality}p...\nProgress: 0%\n[░░░░░░░░░░]\nETA: 0s")
             
-            start_time = time.time()
-            message.reply_video(
-                new_file,
-                quote=True,
-                supports_streaming=True,
-                thumb=get_thumbnail(new_file, download_dir, get_duration(new_file) / 4),
-                duration=get_duration(new_file),
-                width=get_width_height(new_file)[0],
-                height=get_width_height(new_file)[1]
-            )
-            os.remove(new_file)
-            msg.edit_text("Video Successfully Encoded to x265 🐭")
-        else:
-            msg.edit_text("Encoding failed. Try again later 🐭")
-            os.remove(filepath)
-    
+            def encode_progress(progress, eta):
+                msg.edit_text(
+                    f"Encoding {quality}p...\n"
+                    f"Progress: {progress:.2f}%\n"
+                    f"[{progress_bar(progress)}]\n"
+                    f"ETA: {format_time(eta)}"
+                )
+            
+            new_file = encode(filepath, quality, progress_callback=encode_progress)
+            
+            if new_file:
+                # Uploading
+                msg.edit_text(f"Uploading {quality}p...\nProgress: 0%\nSize: 0.00 MB of 0.00 MB\nSpeed: 0.00 MB/s\nETA: 0s\nElapsed: 0s")
+                
+                def upload_progress(current, total):
+                    progress = (current / total) * 100
+                    speed = current / (time.time() - start_time)
+                    eta = (total - current) / speed if speed > 0 else 0
+                    elapsed = time.time() - start_time
+                    msg.edit_text(
+                        f"Uploading {quality}p...\n"
+                        f"Progress: {progress:.2f}%\n"
+                        f"Size: {current / 1024 / 1024:.2f} MB of {total / 1024 / 1024:.2f} MB\n"
+                        f"Speed: {speed / 1024 / 1024:.2f} MB/s\n"
+                        f"ETA: {format_time(eta)}\n"
+                        f"Elapsed: {format_time(elapsed)}"
+                    )
+                
+                start_time = time.time()
+                message.reply_video(
+                    new_file,
+                    quote=True,
+                    supports_streaming=True,
+                    progress=upload_progress,
+                    thumb=get_thumbnail(new_file, download_dir, get_duration(new_file) / 4),
+                    duration=get_duration(new_file),
+                    width=get_width_height(new_file)[0],
+                    height=get_width_height(new_file)[1]
+                )
+                os.remove(new_file)
+                msg.edit_text(f"Video Successfully Encoded to {quality}p 🐭")
+            else:
+                msg.edit_text(f"Something Went Wrong While Encoding {quality}p :(\nTry Again Later 🐭")
+        
+        os.remove(filepath)
     except Exception as e:
         msg.edit_text(f"Error: {e}")
     on_task_complete()
