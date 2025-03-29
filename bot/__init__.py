@@ -11,11 +11,25 @@ bot_token = os.environ.get('BOT_TOKEN', "7558079740:AAEjoMR5ykede9hFYhLioPMEhdjG
 download_dir = os.environ.get("DOWNLOAD_DIR", "downloads/")
 sudo_users = list(set(int(x) for x in os.environ.get('SUDO_USERS', "7207533746").split()))
 
-app = Client(":memory:", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
+class BotData:
+    def __init__(self):
+        self.data = []
+        self.stats = {
+            'total': 0,
+            'daily': {},
+            'start_time': time.time()
+        }
 
-data = []
+bot_data = BotData()
+
+app = Client(
+    ":memory:",
+    api_id=api_id,
+    api_hash=api_hash,
+    bot_token=bot_token
+)
 
 if not download_dir.endswith("/"):
-  download_dir = str(download_dir) + "/"
+    download_dir = str(download_dir) + "/"
 if not os.path.isdir(download_dir):
-  os.makedirs(download_dir)
+    os.makedirs(download_dir)
