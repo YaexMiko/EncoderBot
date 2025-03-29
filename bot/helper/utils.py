@@ -1,21 +1,23 @@
 import os
 import time
 from datetime import datetime
-from bot import data, download_dir, stats
+import humanize
+from bot import bot_data
 from pyrogram.types import Message
 from .ffmpeg_utils import encode, get_thumbnail, get_duration, get_width_height
 
 def update_stats(action):
     today = datetime.now().strftime("%Y-%m-%d")
-    if today not in stats['daily']:
-        stats['daily'][today] = 0
-    stats['total'] += 1
-    stats['daily'][today] += 1
+    if today not in bot_data.stats['daily']:
+        bot_data.stats['daily'][today] = 0
+    bot_data.stats['total'] += 1
+    bot_data.stats['daily'][today] += 1
 
 def on_task_complete():
-    del data[0]
-    if len(data) > 0:
-        add_task(data[0])
+    if bot_data.data:
+        del bot_data.data[0]
+        if bot_data.data:
+            add_task(*bot_data.data[0])
 
 def progress_callback(current, total, msg, start_time):
     elapsed = time.time() - start_time
@@ -34,7 +36,7 @@ def add_task(message: Message, crf=28, preset='medium', audio_bitrate='128k', cu
         msg = message.reply_text("Downloading 🐭", quote=True)
         
         filepath = message.download(
-            file_name=download_dir,
+            file_name=bot_data.download_dir,
             progress=progress_callback,
             progress_args=(msg, start_time)
         )
@@ -52,7 +54,7 @@ def add_task(message: Message, crf=28, preset='medium', audio_bitrate='128k', cu
             update_stats('encode')
             msg.edit("Video Encoded Successfully\nGetting Metadata 🐭")
             duration = get_duration(new_file)
-            thumb = get_thumbnail(new_file, download_dir, duration / 4, custom_thumbnail)
+            thumb = get_thumbnail(new_file, bot_data.download_dir, duration / 4, custom_thumbnail)
             width, height = get_width_height(new_file)
             
             msg.edit("Uploading 🐭")
