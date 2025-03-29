@@ -1,10 +1,11 @@
+import os
 import time
 from datetime import datetime
 import humanize
 from pyrogram import filters
-from bot import app, data, sudo_users, stats
-from bot.helper.utils import add_task, update_stats
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from bot import app, bot_data
+from bot.helper.utils import add_task, update_stats
 
 video_mimetype = [
     "video/x-flv", "video/mp4", "application/x-mpegURL", "video/MP2T",
@@ -30,7 +31,7 @@ Hey {message.from_user.mention()} 🐭
 """
     message.reply_text(help_text, quote=True)
 
-@app.on_message(filters.user(sudo_users) & filters.incoming & filters.command('encode'))
+@app.on_message(filters.user(bot_data.sudo_users) & filters.incoming & filters.command('encode'))
 def encode_command(app, message):
     try:
         crf = 28
@@ -51,9 +52,9 @@ def encode_command(app, message):
             
             if message.reply_to_message.video or message.reply_to_message.document:
                 message.reply_text("Added To Queue With Custom Settings 🐭", quote=True)
-                data.append((message.reply_to_message, crf, preset, audio_bitrate, custom_thumbnail))
-                if len(data) == 1:
-                    add_task(*data[0])
+                bot_data.data.append((message.reply_to_message, crf, preset, audio_bitrate, custom_thumbnail))
+                if len(bot_data.data) == 1:
+                    add_task(*bot_data.data[0])
             else:
                 message.reply_text("Reply to a video file to encode it 🐭", quote=True)
         else:
@@ -61,52 +62,52 @@ def encode_command(app, message):
     except Exception as e:
         message.reply_text(f"Error: {e}", quote=True)
 
-@app.on_message(filters.user(sudo_users) & filters.incoming & (filters.video | filters.document))
+@app.on_message(filters.user(bot_data.sudo_users) & filters.incoming & (filters.video | filters.document))
 def encode_video(app, message):
     if message.document and not message.document.mime_type in video_mimetype:
         message.reply_text("Invalid Video Format!\nMake Sure Its a Supported Video File 🐭", quote=True)
         return
     message.reply_text("Added To Queue 🐭", quote=True)
-    data.append((message, 28, 'medium', '128k', None))
-    if len(data) == 1:
-        add_task(*data[0])
+    bot_data.data.append((message, 28, 'medium', '128k', None))
+    if len(bot_data.data) == 1:
+        add_task(*bot_data.data[0])
 
-@app.on_message(filters.user(sudo_users) & filters.incoming & filters.command('queue'))
+@app.on_message(filters.user(bot_data.sudo_users) & filters.incoming & filters.command('queue'))
 def show_queue(app, message):
-    if not data:
+    if not bot_data.data:
         message.reply_text("Queue is empty 🐭", quote=True)
     else:
         queue_text = "**Current Queue:**\n"
-        for i, item in enumerate(data, 1):
+        for i, item in enumerate(bot_data.data, 1):
             msg = item[0]
             queue_text += f"{i}. {msg.video.file_name if msg.video else msg.document.file_name}\n"
         message.reply_text(queue_text, quote=True)
 
-@app.on_message(filters.user(sudo_users) & filters.incoming & filters.command('stats'))
+@app.on_message(filters.user(bot_data.sudo_users) & filters.incoming & filters.command('stats'))
 def show_stats(app, message):
-    uptime = humanize.precisedelta(time.time() - stats['start_time'])
+    uptime = humanize.precisedelta(time.time() - bot_data.stats['start_time'])
     stats_text = f"""
 **Bot Statistics:**
-- Total Encoded Videos: {stats['total']}
-- Today's Encodes: {stats['daily'].get(datetime.now().strftime('%Y-%m-%d'), 0)}
+- Total Encoded Videos: {bot_data.stats['total']}
+- Today's Encodes: {bot_data.stats['daily'].get(datetime.now().strftime('%Y-%m-%d'), 0)}
 - Uptime: {uptime}
-- Queue Length: {len(data)}
+- Queue Length: {len(bot_data.data)}
 """
     message.reply_text(stats_text, quote=True)
 
-@app.on_message(filters.user(sudo_users) & filters.incoming & filters.command('restart'))
+@app.on_message(filters.user(bot_data.sudo_users) & filters.incoming & filters.command('restart'))
 def restart_bot(app, message):
     message.reply_text("Restarting bot...", quote=True)
     os.execl(sys.executable, sys.executable, *sys.argv)
 
-@app.on_message(filters.user(sudo_users) & filters.incoming & filters.command('broadcast'))
+@app.on_message(filters.user(bot_data.sudo_users) & filters.incoming & filters.command('broadcast'))
 def broadcast_message(app, message):
     if len(message.command) < 2:
         message.reply_text("Usage: /broadcast <message>", quote=True)
         return
     
     broadcast_text = ' '.join(message.command[1:])
-    confirmed = message.reply_text(
+    message.reply_text(
         f"Confirm broadcast:\n{broadcast_text}",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("Confirm", callback_data="broadcast_confirm")],
@@ -117,7 +118,7 @@ def broadcast_message(app, message):
 @app.on_callback_query(filters.regex('^broadcast_'))
 def handle_broadcast_callback(app, callback_query):
     if callback_query.data == 'broadcast_confirm':
-        users = []  # You'll need to implement user tracking for this
+        users = []  # Implement user tracking as needed
         callback_query.message.edit("Broadcasting to users...")
         for user in users:
             try:
